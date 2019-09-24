@@ -5,7 +5,7 @@ locals {
   keyfile = var.key_filename
   pubfile = "${local.keyfile}.pub"
 
-  configure_local_peer = var.local_peer.internal_ip == ""
+  configure_local_peer = var.local_peer.internal_ip != ""
   local_peer_conf_file = "${path.module}/local_peer.conf"
 }
 
@@ -142,11 +142,11 @@ resource "null_resource" "local_peer_conf" {
 
   # null_resource allows us to trigger change, but not churn due to apply-time reading of keys
   triggers = {
-    peers   = md5(join("", null_resource.wireguard.*.id))
+    peers   = md5(join("", values(null_resource.wireguard).*.id))
     address = var.local_peer.internal_ip
     prefix  = var.mesh_prefix
     port    = var.local_peer.port
-    key     = local_file.local_peer_pubkey[0].content
+    key     = md5(local_file.local_peer_pubkey[0].content)
   }
 
   provisioner "local-exec" {
@@ -174,6 +174,14 @@ EOC
   }
 }
 
+data "local_file" "local_peer_conf" {
+  depends_on = [
+    null_resource.local_peer_conf,
+  ]
+
+  filename = local.local_peer_conf_file
+}
+
 resource "null_resource" "peers" {
   for_each = local.peers
 
@@ -182,6 +190,7 @@ resource "null_resource" "peers" {
     internal_ips = md5(join("", [for p in local.peers : p.internal_ip]))
     keys         = md5(join("", [for k in null_resource.keys : k.id]))
     endpoints    = md5(join("", [for p in local.peers : p.endpoint]))
+    local_peer   = local_file.local_peer_pubkey[0].id
   }
 
   connection {

@@ -116,7 +116,7 @@ resource "local_file" "local_peer_key" {
   filename          = "${local.local_peer_dir}/local_peer.key"
 
   provisioner "local-exec" {
-    command = "chmod 0400 ${self.filename}"
+    command = "chmod 0600 ${self.filename}"
   }
 }
 
@@ -133,7 +133,7 @@ resource "local_file" "local_peer_pubkey" {
   filename = "${local.local_peer_dir}/local_peer.pub"
 
   provisioner "local-exec" {
-    command = "chmod 0400 ${self.filename}"
+    command = "chmod 0600 ${self.filename}"
   }
 }
 
@@ -182,7 +182,7 @@ EOC
   filename          = "${local.local_peer_dir}/${null_resource.local_peer_conf_filename[0].id}.conf"
 
   provisioner "local-exec" {
-    command = "chmod 0400 ${self.filename}"
+    command = "chmod 0600 ${self.filename}"
   }
 }
 

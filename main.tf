@@ -6,7 +6,7 @@ locals {
   pubfile = "${local.keyfile}.pub"
 
   configure_local_peer = var.local_peer.internal_ip != ""
-  local_peer_conf_file = "${path.module}/local_peer.conf"
+  local_peer_dir       = "${path.module}/.local-peer"
 }
 
 resource "null_resource" "systemd_conf" {
@@ -113,7 +113,7 @@ resource "local_file" "local_peer_key" {
   }
 
   sensitive_content = data.external.local_peer_key[0].result.key
-  filename          = "${path.module}/local_peer.key"
+  filename          = "${local.local_peer_dir}/local_peer.key"
 
   provisioner "local-exec" {
     command = "chmod 0400 ${self.filename}"
@@ -130,17 +130,21 @@ resource "local_file" "local_peer_pubkey" {
   }
 
   content  = data.external.local_peer_pubkey[0].result.pubkey
-  filename = "${path.module}/local_peer.pub"
+  filename = "${local.local_peer_dir}/local_peer.pub"
 
   provisioner "local-exec" {
     command = "chmod 0400 ${self.filename}"
   }
 }
 
-resource "null_resource" "local_peer_conf" {
+resource "null_resource" "local_peer_conf_filename" {
   count = local.configure_local_peer ? 1 : 0
 
-  # null_resource allows us to trigger change, but not churn due to apply-time reading of keys
+  # This is a bit of a hack that allows us to ignore change to
+  # apply-time read keys but use other appropriate triggers.
+  # We can use this resourcee's ID in the filename when rendering
+  # the local_file in order to use it as a 'trigger' for non-null_resource.
+
   triggers = {
     peers   = md5(join("", values(null_resource.wireguard).*.id))
     address = var.local_peer.internal_ip
@@ -148,38 +152,38 @@ resource "null_resource" "local_peer_conf" {
     port    = var.local_peer.port
     key     = md5(local_file.local_peer_pubkey[0].content)
   }
-
-  provisioner "local-exec" {
-    command = <<EOC
-      cat <<'EOF' > '${local.local_peer_conf_file}'
-        [Interface]
-        Address=${var.local_peer.internal_ip}/${var.mesh_prefix}
-        ListenPort=${var.local_peer.port}
-        PrivateKey=${local_file.local_peer_key[0].sensitive_content}
-
-      %{for peer in local.peers}
-        [Peer]
-        PublicKey=${data.external.pubkeys[index(var.peers, peer)].result.pubkey}
-        AllowedIPs=${peer.internal_ip}/32
-      %{if peer.endpoint != ""}
-        Endpoint=${peer.endpoint}:${peer.port}
-      %{endif}
-      %{endfor}
-EOF
-EOC
-  }
-
-  provisioner "local-exec" {
-    command = "chmod 0400 ${local.local_peer_conf_file}"
-  }
 }
 
-data "local_file" "local_peer_conf" {
-  depends_on = [
-    null_resource.local_peer_conf,
-  ]
+resource "local_file" "local_peer_conf" {
+  count = local.configure_local_peer ? 1 : 0
 
-  filename = local.local_peer_conf_file
+  # Ignore changes to the content, use null_resource ID in filename for triggers.
+  lifecycle {
+    ignore_changes = [
+      "sensitive_content",
+    ]
+  }
+
+  sensitive_content = <<EOC
+    [Interface]
+    Address=${var.local_peer.internal_ip}/${var.mesh_prefix}
+    ListenPort=${var.local_peer.port}
+    PrivateKey=${local_file.local_peer_key[0].sensitive_content}
+
+  %{for peer in local.peers}
+    [Peer]
+    PublicKey=${data.external.pubkeys[index(var.peers, peer)].result.pubkey}
+    AllowedIPs=${peer.internal_ip}/32
+  %{if peer.endpoint != ""}
+    Endpoint=${peer.endpoint}:${peer.port}
+  %{endif}
+  %{endfor}
+EOC
+  filename          = "${local.local_peer_dir}/${null_resource.local_peer_conf_filename[0].id}.conf"
+
+  provisioner "local-exec" {
+    command = "chmod 0400 ${self.filename}"
+  }
 }
 
 resource "null_resource" "peers" {

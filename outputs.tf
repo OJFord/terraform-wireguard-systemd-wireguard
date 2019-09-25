@@ -1,5 +1,5 @@
 output "local_peer_conf" {
   description = "WireGuard config file for the `var.local_peer`, if configured"
-  value       = local.configure_local_peer ? data.local_file.local_peer_conf.content : null
+  value       = local.configure_local_peer ? local_file.local_peer_conf[0].sensitive_content : null
   sensitive   = true
 }

@@ -160,7 +160,7 @@ resource "local_file" "local_peer_conf" {
   # Ignore changes to the content, use null_resource ID in filename for triggers.
   lifecycle {
     ignore_changes = [
-      "sensitive_content",
+      sensitive_content,
     ]
   }
 

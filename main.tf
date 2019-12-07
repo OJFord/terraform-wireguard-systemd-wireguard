@@ -114,10 +114,7 @@ resource "local_file" "local_peer_key" {
 
   sensitive_content = data.external.local_peer_key[0].result.key
   filename          = "${local.local_peer_dir}/local_peer.key"
-
-  provisioner "local-exec" {
-    command = "chmod 0600 ${self.filename}"
-  }
+  file_permission   = "0600"
 }
 
 resource "local_file" "local_peer_pubkey" {
@@ -180,10 +177,7 @@ resource "local_file" "local_peer_conf" {
   %{endfor}
 EOC
   filename          = "${local.local_peer_dir}/${null_resource.local_peer_conf_filename[0].id}.conf"
-
-  provisioner "local-exec" {
-    command = "chmod 0600 ${self.filename}"
-  }
+  file_permission   = "0600"
 }
 
 resource "null_resource" "peers" {

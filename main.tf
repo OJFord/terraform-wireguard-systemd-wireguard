@@ -17,7 +17,7 @@ resource "null_resource" "systemd_conf" {
       [Match]
       Name=${var.interface}
 EOC
-    destination = "/etc/systemd/network/${var.interface}.network"
+    destination = "${var.systemd_dir}/${var.interface}.network"
   }
 
   provisioner "file" {
@@ -31,7 +31,7 @@ EOC
       ListenPort=${each.value.port}
       PrivateKeyFile=${var.key_filename}
 EOC
-    destination = "/etc/systemd/network/${var.interface}.netdev"
+    destination = "${var.systemd_dir}/${var.interface}.netdev"
   }
 }
 
@@ -55,7 +55,7 @@ resource "null_resource" "address" {
       [Network]
       Address=${each.value.internal_ip}/${var.mesh_prefix}
 EOC
-    destination = "/etc/systemd/network/${var.interface}.network.d/address.conf"
+    destination = "${var.systemd_dir}/${var.interface}.network.d/address.conf"
   }
 }
 
@@ -221,7 +221,7 @@ resource "null_resource" "peers" {
       AllowedIPs=${var.local_peer.internal_ip}/32
     %{endif}
 EOC
-    destination = "/etc/systemd/network/${var.interface}.netdev.d/peers.conf"
+    destination = "${var.systemd_dir}/${var.interface}.netdev.d/peers.conf"
   }
 }
 

@@ -57,3 +57,9 @@ variable "use_extant_systemd_conf" {
   type        = bool
   default     = false
 }
+
+variable "systemd_dir" {
+  description = "Location of the systemd configuration; override may be needed if `use_extant_systemd_conf` true"
+  type        = string
+  default     = "/etc/systemd/network"
+}

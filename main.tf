@@ -74,7 +74,10 @@ resource "null_resource" "keys" {
   provisioner "remote-exec" {
     inline = [
       "wg genkey > '${local.keyfile}'",
+      "chmod 0640 '${local.keyfile}'",
+      "chown root:systemd-network '${local.keyfile}'",
       "wg pubkey < '${local.keyfile}' > '${local.pubfile}'",
+      "chmod 0644 '${local.pubfile}'",
     ]
   }
 }

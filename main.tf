@@ -63,7 +63,7 @@ resource "null_resource" "keys" {
   for_each = local.peers
 
   triggers = {
-    ip = each.value.id
+    id = each.value.id
   }
 
   connection {

@@ -39,6 +39,7 @@ resource "null_resource" "address" {
   for_each = local.peers
 
   triggers = {
+    id     = each.value.id
     ip     = each.value.internal_ip
     prefix = var.mesh_prefix
     iface  = var.interface

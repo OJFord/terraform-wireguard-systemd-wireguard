@@ -45,11 +45,11 @@ variable "local_peer" {
     internal_ip = string
     port        = number
   })
+
   default = {
     internal_ip = ""
     port        = 51820
   }
-
 }
 
 variable "use_extant_systemd_conf" {

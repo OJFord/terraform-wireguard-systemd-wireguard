@@ -6,13 +6,21 @@ variable "mesh_prefix" {
 variable "peers" {
   description = <<EOD
     List of peers for which to configure a WireGuard mesh.
+
       * id: Terraform ID of the peer's server resource (on which to trigger replacements)
+
       * egress: Whether to use this peer for outgoing traffic; i.e. non-egress peers will send all traffic via egress peers
-      * endpoint: Public address for other peers to use as its `Endpoint`; may be blank (`""`) if not applicabl
+
+      * endpoint: Public address for other peers to use as its `Endpoint`; may be blank (`""`) if not applicable
+
       * hostname: The peer's hostname
-      * internal_ip: Private IP for this peer in the WireGuard networ
-      * port: Port on which WireGuard is listening, e.g. `51820
-      * ssh_host: Reachable address to connect to this peer over SS
+
+      * internal_ip: Private IP for this peer in the WireGuard network
+
+      * port: Port on which WireGuard is listening, e.g. `51820`
+
+      * ssh_host: Reachable address to connect to this peer over SSH
+
       * ssh_user: Username to use in connecting to this peer with SSH
 EOD
   type = list(object({

@@ -28,6 +28,11 @@ EOC
 resource "null_resource" "systemd_conf" {
   for_each = var.use_extant_systemd_conf ? {} : local.peers
 
+  connection {
+    host = each.value.ssh_host
+    user = each.value.ssh_user
+  }
+
   provisioner "file" {
     content     = <<EOC
       [Match]

@@ -7,6 +7,22 @@ locals {
 
   configure_local_peer = var.local_peer.internal_ip != ""
   local_peer_dir       = "${path.module}/.local-peer"
+
+  local_peer_conf = local.configure_local_peer ? null : <<EOC
+    [Interface]
+    Address=${var.local_peer.internal_ip}/${var.mesh_prefix}
+    ListenPort=${var.local_peer.port}
+    PrivateKey=${wireguard_asymmetric_key.local_peer[0].private_key}
+
+  %{for peer in local.peers}
+    [Peer]
+    PublicKey=${wireguard_asymmetric_key.remote_peer[index(local.peers, peer)].public_key}
+    AllowedIPs=${peer.internal_ip}/32
+  %{if peer.endpoint != ""}
+    Endpoint=${peer.endpoint}:${peer.port}
+  %{endif}
+  %{endfor}
+EOC
 }
 
 resource "null_resource" "systemd_conf" {
@@ -59,129 +75,39 @@ EOC
   }
 }
 
-resource "null_resource" "keys" {
+resource "wireguard_asymmetric_key" "remote_peer" {
   for_each = local.peers
+}
 
-  triggers = {
-    id = each.value.id
-  }
+resource "null_resource" "keys" {
+  for_each = wireguard_asymmetric_key.remote_peer
 
   connection {
-    host = each.value.ssh_host
-    user = each.value.ssh_user
+    host = local.peers[each.key].ssh_host
+    user = local.peers[each.key].ssh_user
+  }
+
+  provisioner "file" {
+    content     = each.value.private_key
+    destination = local.keyfile
+  }
+
+  provisioner "file" {
+    content     = each.value.public_key
+    destination = local.pubfile
   }
 
   provisioner "remote-exec" {
     inline = [
-      "wg genkey > '${local.keyfile}'",
       "chmod 0640 '${local.keyfile}'",
       "chown root:systemd-network '${local.keyfile}'",
-      "wg pubkey < '${local.keyfile}' > '${local.pubfile}'",
       "chmod 0644 '${local.pubfile}'",
     ]
   }
 }
 
-data "external" "pubkeys" {
-  for_each = local.peers
-
-  depends_on = [
-    null_resource.keys,
-  ]
-
-  program = [
-    "sh",
-    "-c",
-    "jq -n --arg pubkey \"$(ssh ${each.value.ssh_user}@${each.value.ssh_host} cat ${local.pubfile})\" '{$pubkey}'",
-  ]
-}
-
-data "external" "local_peer_key" {
-  count   = local.configure_local_peer ? 1 : 0
-  program = ["/bin/sh", "-c", "jq -n --arg key $(wg genkey) '{$key}'"]
-}
-
-data "external" "local_peer_pubkey" {
-  count   = local.configure_local_peer ? 1 : 0
-  program = ["/bin/sh", "-c", "jq -r '.key' | wg pubkey | xargs -I@ echo '\"@\"' | jq '{pubkey:.}'"]
-  query   = data.external.local_peer_key[0].result
-}
-
-resource "local_file" "local_peer_key" {
+resource "wireguard_asymmetric_key" "local_peer" {
   count = local.configure_local_peer ? 1 : 0
-
-  lifecycle {
-    ignore_changes = [
-      sensitive_content, # otherwise we get a new key on every apply
-    ]
-  }
-
-  sensitive_content = data.external.local_peer_key[0].result.key
-  filename          = "${local.local_peer_dir}/local_peer.key"
-  file_permission   = "0600"
-}
-
-resource "local_file" "local_peer_pubkey" {
-  count = local.configure_local_peer ? 1 : 0
-
-  lifecycle {
-    ignore_changes = [
-      content, # otherwise we get a new key on every apply
-    ]
-  }
-
-  content  = data.external.local_peer_pubkey[0].result.pubkey
-  filename = "${local.local_peer_dir}/local_peer.pub"
-
-  provisioner "local-exec" {
-    command = "chmod 0600 ${self.filename}"
-  }
-}
-
-resource "null_resource" "local_peer_conf_filename" {
-  count = local.configure_local_peer ? 1 : 0
-
-  # This is a bit of a hack that allows us to ignore change to
-  # apply-time read keys but use other appropriate triggers.
-  # We can use this resourcee's ID in the filename when rendering
-  # the local_file in order to use it as a 'trigger' for non-null_resource.
-
-  triggers = {
-    peers   = md5(join("", values(null_resource.wireguard).*.id))
-    address = var.local_peer.internal_ip
-    prefix  = var.mesh_prefix
-    port    = var.local_peer.port
-    key     = md5(local_file.local_peer_pubkey[0].content)
-  }
-}
-
-resource "local_file" "local_peer_conf" {
-  count = local.configure_local_peer ? 1 : 0
-
-  # Ignore changes to the content, use null_resource ID in filename for triggers.
-  lifecycle {
-    ignore_changes = [
-      sensitive_content,
-    ]
-  }
-
-  sensitive_content = <<EOC
-    [Interface]
-    Address=${var.local_peer.internal_ip}/${var.mesh_prefix}
-    ListenPort=${var.local_peer.port}
-    PrivateKey=${local_file.local_peer_key[0].sensitive_content}
-
-  %{for peer in local.peers}
-    [Peer]
-    PublicKey=${data.external.pubkeys[index(var.peers, peer)].result.pubkey}
-    AllowedIPs=${peer.internal_ip}/32
-  %{if peer.endpoint != ""}
-    Endpoint=${peer.endpoint}:${peer.port}
-  %{endif}
-  %{endfor}
-EOC
-  filename          = "${local.local_peer_dir}/${null_resource.local_peer_conf_filename[0].id}.conf"
-  file_permission   = "0600"
 }
 
 resource "null_resource" "peers" {
@@ -192,7 +118,7 @@ resource "null_resource" "peers" {
     internal_ips = md5(join("", [for p in local.peers : p.internal_ip]))
     keys         = md5(join("", [for k in null_resource.keys : k.id]))
     endpoints    = md5(join("", [for p in local.peers : p.endpoint]))
-    local_peer   = local_file.local_peer_pubkey[0].id
+    local_peer   = wireguard_asymmetric_key.local_peer[0].id
   }
 
   connection {
@@ -204,7 +130,7 @@ resource "null_resource" "peers" {
     content     = <<EOC
     %{for peer in local.peers}
       [WireGuardPeer]
-      PublicKey=${data.external.pubkeys[index(var.peers, peer)].result.pubkey}
+      PublicKey=${wireguard_asymmetric_key.remote_peer[index(var.peers, peer)].public_key}
 
     %{if peer.endpoint != ""}
       Endpoint=${peer.endpoint}:${peer.port}
@@ -220,7 +146,7 @@ resource "null_resource" "peers" {
 
     %{if local.configure_local_peer}
       [WireGuardPeer]
-      PublicKey=${local_file.local_peer_pubkey[0].content}
+      PublicKey=${wireguard_asymmetric_key.local_peer[0].public_key}
       AllowedIPs=${var.local_peer.internal_ip}/32
     %{endif}
 EOC

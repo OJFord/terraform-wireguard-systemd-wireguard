@@ -9,6 +9,9 @@ terraform {
     null = {
       source = "hashicorp/null"
     }
+    wireguard = {
+      source = "OJFord/wireguard"
+    }
   }
   required_version = ">= 0.13"
 }

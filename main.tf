@@ -8,7 +8,7 @@ locals {
   configure_local_peer = var.local_peer.internal_ip != ""
   local_peer_dir       = "${path.module}/.local-peer"
 
-  local_peer_conf = local.configure_local_peer ? null : <<EOC
+  local_peer_conf = ! local.configure_local_peer ? null : <<EOC
     [Interface]
     Address=${var.local_peer.internal_ip}/${var.mesh_prefix}
     ListenPort=${var.local_peer.port}

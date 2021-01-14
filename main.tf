@@ -14,9 +14,9 @@ locals {
     ListenPort=${var.local_peer.port}
     PrivateKey=${wireguard_asymmetric_key.local_peer[0].private_key}
 
-  %{for peer in local.peers}
+  %{for idx, peer in local.peers}
     [Peer]
-    PublicKey=${wireguard_asymmetric_key.remote_peer[index(local.peers, peer)].public_key}
+    PublicKey=${wireguard_asymmetric_key.remote_peer[idx].public_key}
     AllowedIPs=${peer.internal_ip}/32
   %{if peer.endpoint != ""}
     Endpoint=${peer.endpoint}:${peer.port}

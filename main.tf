@@ -92,6 +92,13 @@ resource "null_resource" "keys" {
     user = local.peers[each.key].ssh_user
   }
 
+  provisioner "remote-exec" {
+    inline = [
+      "mkdir -p \"$(dirname '${local.keyfile}')\"",
+      "mkdir -p \"$(dirname '${local.pubfile}')\"",
+    ]
+  }
+
   provisioner "file" {
     content     = each.value.private_key
     destination = local.keyfile

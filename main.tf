@@ -33,6 +33,12 @@ resource "null_resource" "systemd_conf" {
     user = each.value.ssh_user
   }
 
+  provisioner "remote-exec" {
+    inline = [
+      "mkdir -p '${var.systemd_dir}'",
+    ]
+  }
+
   provisioner "file" {
     content     = <<EOC
       [Match]
@@ -69,6 +75,12 @@ resource "null_resource" "address" {
   connection {
     host = each.value.ssh_host
     user = each.value.ssh_user
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "mkdir -p '${var.systemd_dir}/${var.interface}.network.d'",
+    ]
   }
 
   provisioner "file" {
@@ -136,6 +148,12 @@ resource "null_resource" "peers" {
   connection {
     host = each.value.ssh_host
     user = each.value.ssh_user
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "mkdir -p '${var.systemd_dir}/${var.interface}.netdev.d'",
+    ]
   }
 
   provisioner "file" {

@@ -5,7 +5,7 @@ Configure a full-mesh WireGuard network on a list of terraform-managed peer serv
 On the remote peers:
 * systemd >= v243
 * systemd-networkd
-* wireguard-dkms
+* Linux >= 5.6 /or/ wireguard-dkms
 
 If `use_extant_systemd_conf`:
 * configured systemd-networkd netdev with the same interface name as provided to this module (e.g. default `wg0`)

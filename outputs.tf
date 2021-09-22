@@ -1,6 +1,6 @@
-output "local_peer_conf" {
-  description = "WireGuard config file for the `var.local_peer`, if configured"
-  value       = local.local_peer_conf
+output "spoke_peer_confs" {
+  description = "Public keys and config files for the `var.spoke_peers`, if configured"
+  value       = local.spokes
   sensitive   = true
 
   depends_on = [

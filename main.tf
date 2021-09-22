@@ -1,28 +1,63 @@
 locals {
-  peer_idx = toset(range(length(var.peers)))
-  peers    = { for idx in local.peer_idx : idx => var.peers[idx] }
+  peer_idx = toset(range(length(var.mesh_peers)))
+  peers    = { for idx in local.peer_idx : idx => var.mesh_peers[idx] }
 
   keyfile = var.key_filename
   pubfile = "${local.keyfile}.pub"
 
-  configure_local_peer = var.local_peer.internal_ip != ""
-  local_peer_dir       = "${path.module}/.local-peer"
+  spokes = { for spoke in var.spoke_peers : spoke.alias => {
+    internal_ip   = spoke.internal_ip
+    public_key    = spoke.public_key != "" ? spoke.public_key : wireguard_asymmetric_key.spoke_peer[spoke.internal_ip].public_key
+    systemd_conf  = <<EOC
+        [NetDev]
+        Name=${var.interface}
+        Kind=wireguard
+        Description=WireGuard
 
-  local_peer_conf = ! local.configure_local_peer ? null : <<EOC
-    [Interface]
-    Address=${var.local_peer.internal_ip}/${var.mesh_prefix}
-    ListenPort=${var.local_peer.port}
-    PrivateKey=${wireguard_asymmetric_key.local_peer[0].private_key}
+        [WireGuard]
+      %{if spoke.public_key == ""}
+        PrivateKey=${wireguard_asymmetric_key.spoke_peer[spoke.internal_ip].private_key}
+      %{else}
+        PrivateKeyFile=${var.key_filename}
+      %{endif}
 
-  %{for idx, peer in local.peers}
-    [Peer]
-    PublicKey=${wireguard_asymmetric_key.remote_peer[idx].public_key}
-    AllowedIPs=${peer.internal_ip}/32
-  %{if peer.endpoint != ""}
-    Endpoint=${peer.endpoint}:${peer.port}
-  %{endif}
-  %{endfor}
-EOC
+      %{for peer_idx, peer in local.peers}
+        [WireGuardPeer]
+        PublicKey=${wireguard_asymmetric_key.remote_peer[peer_idx].public_key}
+
+      %{if peer.endpoint != ""}
+        Endpoint=${peer.endpoint}:${peer.port}
+      %{endif}
+
+      %{if !spoke.egress && peer.egress}
+        AllowedIPs=0.0.0.0/0,::/0
+      %{else}
+        AllowedIPs=${peer.internal_ip}/32
+      %{endif}
+
+      %{endfor}
+
+    EOC
+    wg_quick_conf = <<EOC
+        [Interface]
+        Address=${spoke.internal_ip}/${var.mesh_prefix}
+        ListenPort=${spoke.port}
+      %{if spoke.public_key == ""}
+        PrivateKey=${wireguard_asymmetric_key.spoke_peer[spoke.internal_ip].private_key}
+      %{else}
+        PrivateKey=# User should replace with that from pre-created key pair with public part: ${spoke.public_key}
+      %{endif}
+
+      %{for idx, peer in local.peers}
+        [Peer]
+        PublicKey=${wireguard_asymmetric_key.remote_peer[idx].public_key}
+        AllowedIPs=${peer.internal_ip}/32
+      %{if peer.endpoint != ""}
+        Endpoint=${peer.endpoint}:${peer.port}
+      %{endif}
+      %{endfor}
+    EOC
+  } }
 }
 
 resource "null_resource" "systemd_conf" {
@@ -130,8 +165,8 @@ resource "null_resource" "keys" {
   }
 }
 
-resource "wireguard_asymmetric_key" "local_peer" {
-  count = local.configure_local_peer ? 1 : 0
+resource "wireguard_asymmetric_key" "spoke_peer" {
+  for_each = toset([for s in var.spoke_peers : s.internal_ip if s.public_key == ""])
 }
 
 resource "null_resource" "peers" {
@@ -142,7 +177,7 @@ resource "null_resource" "peers" {
     internal_ips = md5(join("", [for p in local.peers : p.internal_ip]))
     keys         = md5(join("", [for k in null_resource.keys : k.id]))
     endpoints    = md5(join("", [for p in local.peers : p.endpoint]))
-    local_peer   = wireguard_asymmetric_key.local_peer[0].id
+    spokes       = md5(join("", [for s in local.spokes : s.wg_quick_conf]))
   }
 
   connection {
@@ -158,15 +193,15 @@ resource "null_resource" "peers" {
 
   provisioner "file" {
     content     = <<EOC
-    %{for peer in local.peers}
+    %{for peer_idx, peer in local.peers}
       [WireGuardPeer]
-      PublicKey=${wireguard_asymmetric_key.remote_peer[index(var.peers, peer)].public_key}
+      PublicKey=${wireguard_asymmetric_key.remote_peer[peer_idx].public_key}
 
     %{if peer.endpoint != ""}
       Endpoint=${peer.endpoint}:${peer.port}
     %{endif}
 
-    %{if ! each.value.egress && peer.egress}
+    %{if !each.value.egress && peer.egress}
       AllowedIPs=0.0.0.0/0,::/0
     %{else}
       AllowedIPs=${peer.internal_ip}/32
@@ -174,11 +209,11 @@ resource "null_resource" "peers" {
 
     %{endfor}
 
-    %{if local.configure_local_peer}
+    %{for spoke in local.spokes}
       [WireGuardPeer]
-      PublicKey=${wireguard_asymmetric_key.local_peer[0].public_key}
-      AllowedIPs=${var.local_peer.internal_ip}/32
-    %{endif}
+      PublicKey=${spoke.public_key}
+      AllowedIPs=${spoke.internal_ip}/32
+    %{endfor}
 EOC
     destination = "${var.systemd_dir}/${var.interface}.netdev.d/peers.conf"
   }

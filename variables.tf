@@ -3,7 +3,7 @@ variable "mesh_prefix" {
   type        = number
 }
 
-variable "peers" {
+variable "mesh_peers" {
   description = <<EOD
     List of peers for which to configure a WireGuard mesh.
 
@@ -47,17 +47,17 @@ variable "key_filename" {
   default     = "/etc/wireguard/key"
 }
 
-variable "local_peer" {
-  description = "Optional configuration to generate a local peer"
-  type = object({
+variable "spoke_peers" {
+  description = "Extra non-meshed peers to allow. Key will be generated if not provided."
+  type = list(object({
+    alias       = string
+    egress      = bool
     internal_ip = string
     port        = number
-  })
+    public_key  = string
+  }))
 
-  default = {
-    internal_ip = ""
-    port        = 51820
-  }
+  default = []
 }
 
 variable "use_extant_systemd_conf" {

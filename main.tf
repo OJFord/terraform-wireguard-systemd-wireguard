@@ -6,9 +6,14 @@ locals {
   pubfile = "${local.keyfile}.pub"
 
   spokes = { for spoke in var.spoke_peers : spoke.alias => {
-    internal_ip   = spoke.internal_ip
-    public_key    = spoke.public_key != "" ? spoke.public_key : wireguard_asymmetric_key.spoke_peer[spoke.internal_ip].public_key
-    systemd_conf  = <<EOC
+    internal_ip = spoke.internal_ip
+
+    public_key = (spoke.public_key != ""
+      ? spoke.public_key
+      : wireguard_asymmetric_key.spoke_peer[spoke.internal_ip].public_key
+    )
+
+    systemd_conf = <<EOC
         [NetDev]
         Name=${var.interface}
         Kind=wireguard
@@ -36,9 +41,14 @@ locals {
       %{endif}
 
       %{endfor}
-
     EOC
-    wg_quick_conf = spoke.public_key != "" ? replace(data.wireguard_config_document.spoke[spoke.alias].conf, "PrivateKey =", "PrivateKey = # for ") : data.wireguard_config_document.spoke[spoke.alias].conf
+
+    wg_quick_conf = replace(
+      data.wireguard_config_document.spoke[spoke.alias].conf,
+      "/PrivateKey ?= ?/",
+      # if the public key was provided, private part is unknown and we rendered public as a dummy
+      spoke.public_key != "" ? "PrivateKey = # for " : "PrivateKey = "
+    )
   } }
 }
 
@@ -48,8 +58,14 @@ data "wireguard_config_document" "spoke" {
   addresses = [
     "${each.value.internal_ip}/${var.mesh_prefix}",
   ]
-  # private key is required, so if we don't know it (public part provided) then use pub key instead and strip later.
-  private_key = each.value.public_key == "" ? wireguard_asymmetric_key.spoke_peer[each.value.internal_ip].private_key : each.value.public_key
+
+  # private key is required, so if we don't know it
+  # (because we didn't generate it, public part was provided)
+  # then use pub key instead and strip later.
+  private_key = (each.value.public_key != ""
+    ? each.value.public_key
+    : wireguard_asymmetric_key.spoke_peer[each.value.internal_ip].private_key
+  )
 
   dynamic "peer" {
     for_each = local.peers
@@ -58,7 +74,10 @@ data "wireguard_config_document" "spoke" {
       allowed_ips = [
         "${peer.value.internal_ip}/32",
       ]
-      endpoint = peer.value.endpoint != "" ? "${peer.value.endpoint}:${peer.value.port}" : ""
+      endpoint = (peer.value.endpoint != ""
+        ? "${peer.value.endpoint}:${peer.value.port}"
+        : ""
+      )
     }
   }
 }

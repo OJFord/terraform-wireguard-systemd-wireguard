@@ -38,26 +38,29 @@ locals {
       %{endfor}
 
     EOC
-    wg_quick_conf = <<EOC
-        [Interface]
-        Address=${spoke.internal_ip}/${var.mesh_prefix}
-        ListenPort=${spoke.port}
-      %{if spoke.public_key == ""}
-        PrivateKey=${wireguard_asymmetric_key.spoke_peer[spoke.internal_ip].private_key}
-      %{else}
-        PrivateKey=# User should replace with that from pre-created key pair with public part: ${spoke.public_key}
-      %{endif}
-
-      %{for idx, peer in local.peers}
-        [Peer]
-        PublicKey=${wireguard_asymmetric_key.remote_peer[idx].public_key}
-        AllowedIPs=${peer.internal_ip}/32
-      %{if peer.endpoint != ""}
-        Endpoint=${peer.endpoint}:${peer.port}
-      %{endif}
-      %{endfor}
-    EOC
+    wg_quick_conf = spoke.public_key != "" ? replace(data.wireguard_config_document.spoke[spoke.alias].conf, "PrivateKey =", "PrivateKey = # for ") : data.wireguard_config_document.spoke[spoke.alias].conf
   } }
+}
+
+data "wireguard_config_document" "spoke" {
+  for_each = { for s in var.spoke_peers : s.alias => s }
+
+  addresses = [
+    "${each.value.internal_ip}/${var.mesh_prefix}",
+  ]
+  # private key is required, so if we don't know it (public part provided) then use pub key instead and strip later.
+  private_key = each.value.public_key == "" ? wireguard_asymmetric_key.spoke_peer[each.value.internal_ip].private_key : each.value.public_key
+
+  dynamic "peer" {
+    for_each = local.peers
+    content {
+      public_key = wireguard_asymmetric_key.remote_peer[peer.key].public_key
+      allowed_ips = [
+        "${peer.value.internal_ip}/32",
+      ]
+      endpoint = peer.value.endpoint != "" ? "${peer.value.endpoint}:${peer.value.port}" : ""
+    }
+  }
 }
 
 resource "null_resource" "systemd_conf" {

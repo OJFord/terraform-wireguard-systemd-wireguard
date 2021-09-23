@@ -202,10 +202,9 @@ resource "null_resource" "peers" {
 
   triggers = {
     hostnames    = md5(join("", [for p in local.peers : p.hostname]))
-    internal_ips = md5(join("", [for p in local.peers : p.internal_ip]))
-    keys         = md5(join("", [for k in null_resource.keys : k.id]))
+    internal_ips = md5(join("", [for p in concat(values(local.peers), values(local.spokes)) : p.internal_ip]))
+    keys         = md5(join("", concat([for k in null_resource.keys : k.id], [for s in local.spokes : s.public_key])))
     endpoints    = md5(join("", [for p in local.peers : p.endpoint]))
-    spokes       = md5(join("", [for s in local.spokes : s.wg_quick_conf]))
   }
 
   connection {

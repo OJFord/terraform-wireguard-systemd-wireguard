@@ -22,6 +22,8 @@ variable "mesh_peers" {
       * ssh_host: Reachable address to connect to this peer over SSH
 
       * ssh_user: Username to use in connecting to this peer with SSH
+
+      * ssh_key: Optional private key to use instead of an agent
 EOD
   type = list(object({
     id          = string
@@ -32,6 +34,7 @@ EOD
     port        = number
     ssh_host    = string
     ssh_user    = string
+    ssh_key     = string
   }))
 }
 

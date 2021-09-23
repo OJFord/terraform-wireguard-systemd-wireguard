@@ -64,8 +64,10 @@ resource "null_resource" "systemd_conf" {
   for_each = var.use_extant_systemd_conf ? {} : local.peers
 
   connection {
-    host = each.value.ssh_host
-    user = each.value.ssh_user
+    host        = each.value.ssh_host
+    user        = each.value.ssh_user
+    private_key = each.value.ssh_key
+    agent       = each.value.ssh_key == ""
   }
 
   provisioner "remote-exec" {
@@ -108,8 +110,10 @@ resource "null_resource" "address" {
   }
 
   connection {
-    host = each.value.ssh_host
-    user = each.value.ssh_user
+    host        = each.value.ssh_host
+    user        = each.value.ssh_user
+    private_key = each.value.ssh_key
+    agent       = each.value.ssh_key == ""
   }
 
   provisioner "remote-exec" {
@@ -135,8 +139,10 @@ resource "null_resource" "keys" {
   for_each = wireguard_asymmetric_key.remote_peer
 
   connection {
-    host = local.peers[each.key].ssh_host
-    user = local.peers[each.key].ssh_user
+    host        = local.peers[each.key].ssh_host
+    user        = local.peers[each.key].ssh_user
+    private_key = local.peers[each.key].ssh_key
+    agent       = local.peers[each.key].ssh_key == ""
   }
 
   provisioner "remote-exec" {
@@ -181,8 +187,10 @@ resource "null_resource" "peers" {
   }
 
   connection {
-    host = each.value.ssh_host
-    user = each.value.ssh_user
+    host        = each.value.ssh_host
+    user        = each.value.ssh_user
+    private_key = each.value.ssh_key
+    agent       = each.value.ssh_key == ""
   }
 
   provisioner "remote-exec" {
@@ -235,8 +243,10 @@ resource "null_resource" "wireguard" {
   ]
 
   connection {
-    host = each.value.ssh_host
-    user = each.value.ssh_user
+    host        = each.value.ssh_host
+    user        = each.value.ssh_user
+    private_key = each.value.ssh_key
+    agent       = each.value.ssh_key == ""
   }
 
   provisioner "remote-exec" {

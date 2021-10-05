@@ -85,6 +85,10 @@ data "wireguard_config_document" "spoke" {
 resource "null_resource" "systemd_conf" {
   for_each = var.use_extant_systemd_conf ? {} : local.peers
 
+  triggers = {
+    id = each.value.id
+  }
+
   connection {
     host        = each.value.ssh_host
     user        = each.value.ssh_user
@@ -160,6 +164,10 @@ resource "wireguard_asymmetric_key" "remote_peer" {
 resource "null_resource" "keys" {
   for_each = wireguard_asymmetric_key.remote_peer
 
+  triggers = {
+    id = each.value.id
+  }
+
   connection {
     host        = local.peers[each.key].ssh_host
     user        = local.peers[each.key].ssh_user
@@ -202,6 +210,7 @@ resource "null_resource" "peers" {
 
   triggers = {
     hostnames    = md5(join("", [for p in local.peers : p.hostname]))
+    id           = each.value.id
     internal_ips = md5(join("", [for p in concat(values(local.peers), values(local.spokes)) : p.internal_ip]))
     keys         = md5(join("", concat([for k in null_resource.keys : k.id], [for s in local.spokes : s.public_key])))
     endpoints    = md5(join("", [for p in local.peers : p.endpoint]))

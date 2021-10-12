@@ -54,6 +54,7 @@ variable "spoke_peers" {
   description = "Extra non-meshed peers to allow. Key will be generated if not provided."
   type = list(object({
     alias       = string
+    dns         = list(string)
     egress      = bool
     internal_ip = string
     port        = number

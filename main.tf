@@ -59,6 +59,8 @@ data "wireguard_config_document" "spoke" {
     "${each.value.internal_ip}/${var.mesh_prefix}",
   ]
 
+  dns = each.value.dns
+
   # private key is required, so if we don't know it
   # (because we didn't generate it, public part was provided)
   # then use pub key instead and strip later.

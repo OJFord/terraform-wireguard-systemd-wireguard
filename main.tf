@@ -100,6 +100,7 @@ resource "null_resource" "systemd_conf" {
 
   provisioner "remote-exec" {
     inline = [
+      "set -o errexit", # https://github.com/hashicorp/terraform/issues/27554
       "mkdir -p '${var.systemd_dir}'",
     ]
   }
@@ -146,6 +147,7 @@ resource "null_resource" "address" {
 
   provisioner "remote-exec" {
     inline = [
+      "set -o errexit", # https://github.com/hashicorp/terraform/issues/27554
       "mkdir -p '${var.systemd_dir}/${var.interface}.network.d'",
     ]
   }
@@ -179,6 +181,7 @@ resource "null_resource" "keys" {
 
   provisioner "remote-exec" {
     inline = [
+      "set -o errexit", # https://github.com/hashicorp/terraform/issues/27554
       "mkdir -p \"$(dirname '${local.keyfile}')\"",
       "mkdir -p \"$(dirname '${local.pubfile}')\"",
     ]
@@ -196,6 +199,7 @@ resource "null_resource" "keys" {
 
   provisioner "remote-exec" {
     inline = [
+      "set -o errexit", # https://github.com/hashicorp/terraform/issues/27554
       "chmod 0640 '${local.keyfile}'",
       "chown root:systemd-network '${local.keyfile}'",
       "chmod 0644 '${local.pubfile}'",
@@ -227,6 +231,7 @@ resource "null_resource" "peers" {
 
   provisioner "remote-exec" {
     inline = [
+      "set -o errexit", # https://github.com/hashicorp/terraform/issues/27554
       "mkdir -p '${var.systemd_dir}/${var.interface}.netdev.d'",
     ]
   }
@@ -283,6 +288,7 @@ resource "null_resource" "wireguard" {
 
   provisioner "remote-exec" {
     inline = [
+      "set -o errexit", # https://github.com/hashicorp/terraform/issues/27554
       "systemctl restart systemd-networkd",
     ]
   }

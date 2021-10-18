@@ -169,7 +169,8 @@ resource "null_resource" "keys" {
   for_each = wireguard_asymmetric_key.remote_peer
 
   triggers = {
-    id = each.value.id
+    key  = each.value.id
+    peer = local.peers[each.key].id
   }
 
   connection {

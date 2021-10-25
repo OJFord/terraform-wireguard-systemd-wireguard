@@ -13,7 +13,7 @@ locals {
       : wireguard_asymmetric_key.spoke_peer[spoke.internal_ip].public_key
     )
 
-    systemd_conf = <<EOC
+    systemd_netdev = <<EOC
         [NetDev]
         Name=${var.interface}
         Kind=wireguard
@@ -41,6 +41,14 @@ locals {
       %{endif}
 
       %{endfor}
+    EOC
+
+    systemd_network = <<EOC
+        [Match]
+        Name=${var.interface}
+
+        [Network]
+        Address=${spoke.internal_ip}/${var.mesh_prefix}
     EOC
 
     wg_quick_conf = replace(

@@ -49,6 +49,9 @@ locals {
 
         [Network]
         Address=${spoke.internal_ip}/${var.mesh_prefix}
+      %{for addr in spoke.dns}
+        DNS=${addr}
+      %{endfor}
     EOC
 
     wg_quick_conf = replace(

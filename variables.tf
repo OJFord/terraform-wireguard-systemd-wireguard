@@ -47,7 +47,7 @@ variable "interface" {
 variable "key_filename" {
   description = "Location of WireGuard private key, if `use_extant_systemd_conf`, set to where that config expects it"
   type        = string
-  default     = "/etc/wireguard/key"
+  default     = null
 }
 
 variable "spoke_peers" {

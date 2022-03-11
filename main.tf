@@ -2,7 +2,7 @@ locals {
   peer_idx = toset(range(length(var.mesh_peers)))
   peers    = { for idx in local.peer_idx : idx => var.mesh_peers[idx] }
 
-  keyfile = var.key_filename
+  keyfile = var.key_filename != null ? var.key_filename : "/etc/wireguard/${var.interface}.key"
   pubfile = "${local.keyfile}.pub"
 
   spokes = { for spoke in var.spoke_peers : spoke.alias => {
@@ -23,7 +23,7 @@ locals {
       %{if spoke.public_key == ""}
         PrivateKey=${wireguard_asymmetric_key.spoke_peer[spoke.internal_ip].private_key}
       %{else}
-        PrivateKeyFile=${var.key_filename}
+        PrivateKeyFile=${local.keyfile}
       %{endif}
 
       %{for peer_idx, peer in local.peers}
@@ -133,7 +133,7 @@ EOC
 
       [WireGuard]
       ListenPort=${each.value.port}
-      PrivateKeyFile=${var.key_filename}
+      PrivateKeyFile=${local.keyfile}
 EOC
     destination = "${var.systemd_dir}/${var.interface}.netdev"
   }

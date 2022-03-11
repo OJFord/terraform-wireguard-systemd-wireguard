@@ -52,6 +52,9 @@ locals {
       %{for addr in spoke.dns}
         DNS=${addr}
       %{endfor}
+      %{for domain in spoke.domains}
+        Domains=${domain}
+      %{endfor}
     EOC
 
     wg_quick_conf = replace(
@@ -70,7 +73,7 @@ data "wireguard_config_document" "spoke" {
     "${each.value.internal_ip}/${var.mesh_prefix}",
   ]
 
-  dns = each.value.dns
+  dns = concat(each.value.dns, each.value.domains)
 
   # private key is required, so if we don't know it
   # (because we didn't generate it, public part was provided)

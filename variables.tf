@@ -55,6 +55,7 @@ variable "spoke_peers" {
   type = list(object({
     alias       = string
     dns         = list(string)
+    domains     = list(string)
     egress      = bool
     internal_ip = string
     port        = number
